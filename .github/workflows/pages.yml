@@ -1,0 +1,86 @@
+# The scenario pages at https://scenarios.pwnstamp.org (custom domain set in the repository's
+# Pages settings, source "GitHub Actions"), built by scripts/site.sh.
+#
+# Pull requests: the id of every scenario, in the job summary, so reviewers see what a merge
+# would publish. main: new ids are archived on the gh-pages branch, which is append-only (an
+# updated scenario keeps the page of its previous id), and the branch is deployed.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages-${{ github.event_name == 'pull_request' && github.ref || 'main' }}
+  cancel-in-progress: false
+
+env:
+  # pwnstamp-source and pwnstamp-compose, from this commit of https://github.com/gobanos/pwnstamp.
+  PWNSTAMP_REV: d0929e627686f4e1574aaabb6d11452e7240d657
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write   # pushes gh-pages, on main only
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: tools
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/bin/pwnstamp-*
+          key: pwnstamp-tools-${{ env.PWNSTAMP_REV }}
+      - if: steps.tools.outputs.cache-hit != 'true'
+        run: >
+          cargo install --locked --git https://github.com/gobanos/pwnstamp --rev "$PWNSTAMP_REV"
+          pwnstamp-source pwnstamp-compose
+      - name: Scenario ids
+        run: |
+          {
+            echo "| Scenario | Id |"
+            echo "|---|---|"
+            scripts/site.sh ids | while read -r dir id; do echo "| \`$dir\` | \`$id\` |"; done
+          } >>"$GITHUB_STEP_SUMMARY"
+      - name: Archive and render on gh-pages
+        if: github.event_name != 'pull_request'
+        run: |
+          if git fetch -q origin gh-pages; then
+            git worktree add out FETCH_HEAD
+            git -C out switch -c gh-pages
+          else
+            git worktree add --orphan -b gh-pages out
+          fi
+          scripts/site.sh build out
+          cd out
+          git add -A
+          if ! git diff --cached --quiet; then
+            git -c user.name='github-actions[bot]' \
+                -c user.email='41898282+github-actions[bot]@users.noreply.github.com' \
+                commit -qm "Site from ${GITHUB_SHA::12}"
+            git push origin gh-pages
+          fi
+      - if: github.event_name != 'pull_request'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: out
+
+  deploy:
+    if: github.event_name != 'pull_request'
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

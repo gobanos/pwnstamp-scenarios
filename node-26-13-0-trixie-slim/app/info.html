@@ -1,0 +1,131 @@
+<!doctype html>
+<!-- pwnstamp info page v1. Same HTML and CSS in every scenario app; only the values differ. -->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{id}} · pwnstamp target</title>
+<style>
+  @font-face { font-family: "Barlow Condensed"; font-style: normal; font-weight: 700; font-display: swap;
+    src: url(/static/fonts/barlow-condensed-700-latin.woff2) format("woff2"); }
+  :root {
+    --bg: #fff; --fg: #0a0a0a; --mid: #6e6e6e; --hair: #e3e3e3; --sig: #ff4f00;
+    --display: "Barlow Condensed", "Roboto Condensed", sans-serif;
+    --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0b0b0b; --fg: #f2f2f0; --mid: #8d8d8a; --hair: #262626; --sig: #ff6a26; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--sans); }
+  main { max-width: 60rem; margin: 0 auto; padding: 0 1rem 4rem; }
+  a { color: inherit; }
+  code { font-family: var(--mono); font-size: .88em; overflow-wrap: anywhere; }
+  .d { font-family: var(--display); font-weight: 700; text-transform: uppercase; }
+
+  header { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: .6rem 1rem;
+           border-bottom: 2px solid var(--fg); padding: 2.5rem 0 .8rem; margin-bottom: 3rem; }
+  .word { font-size: clamp(3rem, 11vw, 7rem); line-height: .82; letter-spacing: -.01em; }
+  .word i { display: inline-block; width: .32em; height: .32em; background: var(--sig); margin-left: .06em; }
+  .meta { font: 11px/1.5 var(--mono); color: var(--mid); text-align: right; overflow-wrap: anywhere; }
+
+  section { display: grid; grid-template-columns: 9rem 1fr; gap: 1.5rem; padding: 1.5rem 0 2.5rem; border-top: 1px solid var(--hair); }
+  section > h2 { margin: 0; font-size: 22px; line-height: 1.2; }
+  section > div { min-width: 0; }
+
+  .name { font-size: clamp(2rem, 5.6vw, 3.6rem); line-height: .95; overflow-wrap: break-word; }
+  .id { margin-top: .8rem; font-size: 14px; }
+  .label, .stats span { font: 500 11px var(--mono); text-transform: uppercase; color: var(--mid); }
+  .label { margin-right: .5rem; }
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); margin-top: 1.8rem; border-top: 2px solid var(--fg); }
+  .stats > div { padding: .7rem 1rem .2rem 0; min-width: 0; }
+  .stats > div + div { border-left: 1px solid var(--hair); padding-left: 1rem; }
+  .stats span { display: block; }
+  .stats b { display: block; font-size: 1.7rem; line-height: 1.2; overflow-wrap: anywhere; }
+  .stats small { font: 500 .8rem var(--mono); color: var(--mid); text-transform: none; }
+  .stats .hot b { color: var(--sig); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  td { padding: .45rem 1rem .45rem 0; border-top: 1px solid var(--hair); vertical-align: top; }
+  td:first-child { width: 8rem; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: .04em; }
+  td:last-child { padding-right: 0; }
+  td.st { text-align: right; white-space: nowrap; font: 600 11px var(--mono); }
+  td.later { color: var(--mid); }
+  .note { margin: 1rem 0 0; }
+
+  .lnk { display: grid; grid-template-columns: minmax(9rem, max-content) 1fr auto; gap: 1rem; align-items: baseline;
+         padding: .8rem 0; border-top: 1px solid var(--hair); text-decoration: none; }
+  .lnk:last-child { border-bottom: 1px solid var(--hair); }
+  .lnk b { font-size: 1.2rem; }
+  .lnk span { color: var(--mid); }
+  .lnk i { font-style: normal; font-weight: 700; }
+  a.lnk:hover b, a.lnk:hover i { color: var(--sig); }
+
+  @media (max-width: 40rem) {
+    header, section { grid-template-columns: 1fr; }
+    .meta { text-align: left; }
+    .stats { grid-template-columns: 1fr; }
+    .stats > div + div { border-left: 0; border-top: 1px solid var(--hair); padding-left: 0; }
+    .lnk { grid-template-columns: 1fr auto; }
+    .lnk span { grid-column: 1; grid-row: 2; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="word d">pwnstamp<i></i></div>
+    <div class="meta">TARGET<br>{{id}}<br>EPOCH {{epoch}}</div>
+  </header>
+
+  <section>
+    <h2 class="d">Scenario</h2>
+    <div>
+      <div class="name d">{{name}}</div>
+      <div class="id"><span class="label">Scenario id</span><code>{{id}}</code></div>
+      <div class="stats">
+        <div><span>Epoch</span><b class="d">{{epoch}}</b></div>
+        <div><span>Levels in scope</span><b class="d">user · root</b></div>
+        <div class="hot"><span>Instance expires</span><b class="d">{{expiry_time}} <small>UTC</small></b><small>{{expiry_date}}</small></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="d">Instance</h2>
+    <div>
+      <table>
+        <tr><td>Runtime</td><td>{{runtime}}</td></tr>
+        <tr><td>OS</td><td>{{os}}</td></tr>
+        <tr><td>Running as</td><td><code>{{running_as}}</code></td></tr>
+        <tr><td>Expiry</td><td><code>{{expiry}}</code></td></tr>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="d">Levels</h2>
+    <div>
+      <table>
+        <tr><td>user</td><td><code>uid {{uid}}</code>, the account the app runs as</td><td class="st">IN SCOPE</td></tr>
+        <tr><td>root</td><td>root of this container</td><td class="st">IN SCOPE</td></tr>
+        <tr><td>host</td><td>the VM around the container</td><td class="st later">LATER</td></tr>
+      </table>
+      <p class="note">Sign a proof at either level with <code>/run/pwnstamp/bin/pwnstamp sign &lt;pseudo&gt;</code>,
+        then paste its output into the verifier.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="d">Reference</h2>
+    <div>
+      <a class="lnk" href="{{scenario_url}}"><b class="d">Reproduce</b><span>Scenario page: image digests, run definition, compose.yaml</span><i>→</i></a>
+      <a class="lnk" href="https://scenarios.pwnstamp.org/rules"><b class="d">Rules</b><span>Scope, no egress, shared machine, abuse contact</span><i>→</i></a>
+      <a class="lnk" href="https://verify.pwnstamp.org/"><b class="d">Verify a proof</b><span>verify.pwnstamp.org</span><i>→</i></a>
+    </div>
+  </section>
+</main>
+</body>
+</html>

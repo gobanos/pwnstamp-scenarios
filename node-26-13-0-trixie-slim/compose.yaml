@@ -1,0 +1,25 @@
+# node:26.13.0-trixie-slim scenario, as a one-service Compose project.
+# Image pinned to the linux/amd64 platform manifest of node:26.13.0-trixie-slim
+# (index sha256:5adad64f9a1fca2d51972caa65983634c8a774eb300d72b20f7f2a0f60368072).
+# https://hub.docker.com/layers/library/node/26.13.0-trixie-slim/images/sha256-6f3406bb40734a2cbe3c78c3a5d9a467113b41b7a4c653a8d0534a276c67afdf
+# What the files can't say (scripts/site.sh): the SPEC §4.3 name, and the guest VM release.
+x-pwnstamp:
+  name: node:26.13.0-trixie-slim
+  vm: "2026.11.10"   # https://github.com/gobanos/pwnstamp-vm/releases/tag/2026.11.10
+services:
+  app:
+    image: node@sha256:6f3406bb40734a2cbe3c78c3a5d9a467113b41b7a4c653a8d0534a276c67afdf
+    command: ["node", "server.js"]
+    user: "1000"
+    working_dir: /app
+    environment:
+      NODE_ENV: production
+      PORT: "3000"
+    volumes:
+      - type: bind
+        source: ./app
+        target: /app
+        read_only: true
+    expose: ["3000"]
+    # Local trial only: the platform reaches the port through the proxy, never a host port.
+    ports: ["127.0.0.1:${HOST_PORT:-3000}:3000"]
