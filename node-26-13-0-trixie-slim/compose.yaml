@@ -6,6 +6,7 @@
 x-pwnstamp:
   name: node:26.13.0-trixie-slim
   vm: "2026.11.10"   # https://github.com/gobanos/pwnstamp-vm/releases/tag/2026.11.10
+  draft: true        # no page until the ceremony: remove in the same commit
 services:
   app:
     image: node@sha256:6f3406bb40734a2cbe3c78c3a5d9a467113b41b7a4c653a8d0534a276c67afdf

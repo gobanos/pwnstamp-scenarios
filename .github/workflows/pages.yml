@@ -44,9 +44,12 @@ jobs:
       - name: Scenario ids
         run: |
           {
-            echo "| Scenario | Id |"
-            echo "|---|---|"
-            scripts/site.sh ids | while read -r dir id; do echo "| \`$dir\` | \`$id\` |"; done
+            echo "| Scenario | Id | Page |"
+            echo "|---|---|---|"
+            scripts/site.sh ids | while read -r dir id state; do
+              if [[ $state == draft ]]; then page="draft: none"; else page="published on merge"; fi
+              echo "| \`$dir\` | \`$id\` | $page |"
+            done
           } >>"$GITHUB_STEP_SUMMARY"
       - name: Archive and render on gh-pages
         if: github.event_name != 'pull_request'

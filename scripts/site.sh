@@ -2,11 +2,14 @@
 # The scenario pages, https://scenarios.pwnstamp.org: one page per scenario id, plus the rules and
 # an index. Ids are computed here from each scenario directory, as the ceremony computes them.
 #
-#   scripts/site.sh ids          print `<dir> <id>` for every scenario directory
-#   scripts/site.sh build SITE   archive the current scenarios into SITE, then render SITE
+#   scripts/site.sh ids          print `<dir> <id> <draft|ready>` for every scenario directory
+#   scripts/site.sh build SITE   archive the ready scenarios into SITE, then render SITE
 #
 # SITE is append-only: a scenario whose id is already in SITE is left as it is, and nothing is
 # ever removed, so an updated scenario keeps the page of its previous id (marked superseded).
+# A draft scenario gets no page, so an id that is never issued is never published: mark a
+# scenario draft until its ceremony. While a scenario is draft, its pages already published stay
+# current.
 # CI keeps SITE on the gh-pages branch (.github/workflows/pages.yml).
 #
 # Each scenario's compose.yaml carries what the files can't say:
@@ -14,6 +17,7 @@
 #   x-pwnstamp:
 #     name: node:26.13.0-trixie-slim   # SPEC §4.3 name: the target's official image reference
 #     vm: "2026.11.10"                 # the pwnstamp-vm release the scenario runs on
+#     draft: true                      # optional: no page yet (not in the run definition)
 #
 # Needs docker (compose config only, no daemon access), jq, curl, openssl, and pwnstamp-source and
 # pwnstamp-compose from https://github.com/gobanos/pwnstamp (on PATH, or PWNSTAMP_BIN=<dir>).
@@ -48,8 +52,8 @@ scenario_dirs() {
 
 # --- Derivation (SPEC §4.3) ----------------------------------------------------------------------
 
-# Sets CONFIG, NAME, VM_RELEASE, TARGET, IMAGE, USER_UID, SOURCES, RUN_JSON, VM_JSON, TUPLE_JSON
-# and ID for the scenario directory $1.
+# Sets CONFIG, NAME, VM_RELEASE, DRAFT, TARGET, IMAGE, USER_UID, SOURCES, RUN_JSON, VM_JSON,
+# TUPLE_JSON and ID for the scenario directory $1.
 derive() {
     local dir=$REPO_DIR/$1
     [[ $1 =~ ^[a-z0-9][a-z0-9-]{0,62}$ ]] || die "$1: directory names are [a-z0-9-], 1 to 63"
@@ -60,6 +64,8 @@ derive() {
     VM_RELEASE=$(jq -r '."x-pwnstamp".vm // ""' <<<"$CONFIG")
     [[ $NAME =~ ^[A-Za-z0-9][A-Za-z0-9._/:-]{0,254}$ ]] || die "$1: x-pwnstamp.name missing or invalid"
     [[ $VM_RELEASE =~ ^[A-Za-z0-9][A-Za-z0-9._-]*$ ]] || die "$1: x-pwnstamp.vm missing or invalid"
+    DRAFT=$(jq -r '."x-pwnstamp" | if has("draft") then .draft else false end' <<<"$CONFIG")
+    [[ $DRAFT == true || $DRAFT == false ]] || die "$1: x-pwnstamp.draft must be true or false"
 
     # The target: the one container with `expose` (SPEC §4.3.1).
     TARGET=$(jq -r '[.services | to_entries[] | select(.value.expose) | .key]
@@ -335,12 +341,13 @@ render_index() {
 EOF
         find "$site" -name meta.json -not -path '*/.git/*' -exec cat {} + \
             | jq -rs --argjson current "$current" '
+                if length == 0 then "      <p class=\"note\">No scenario yet.</p>" else
                 sort_by(.name, .published) | reverse | .[] |
                 "      <a class=\"scn\" href=\"/\(.id | @html)/\"><b class=\"d\">\(.name | @html)</b>" +
                 "<code>\(.id | split("@") | last | @html)</code>" +
                 (if (.id | IN($current[])) then "<span class=\"pill s\">CURRENT</span>"
                  else "<span class=\"pill\">SUPERSEDED</span>" end) +
-                "<small>\(.published | @html)</small></a>"'
+                "<small>\(.published | @html)</small></a>" end'
         cat <<EOF
     </div>
   </section>
@@ -361,17 +368,29 @@ cmd_ids() {
     local dir
     for dir in $(scenario_dirs); do
         derive "$dir"
-        printf '%s %s\n' "$dir" "$ID"
+        printf '%s %s %s\n' "$dir" "$ID" "$([[ $DRAFT == true ]] && echo draft || echo ready)"
     done
 }
 
 cmd_build() {
-    local site=$1 dir current='[]' meta id
+    local site=$1 dir current='[]' drafts='[]' meta id
     mkdir -p "$site"
     for dir in $(scenario_dirs); do
+        derive "$dir"
+        if [[ $DRAFT == true ]]; then
+            log "$dir: draft ($ID), no page"
+            drafts=$(jq -c --arg d "$dir" '. + [$d]' <<<"$drafts")
+            continue
+        fi
         archive "$site" "$dir"
         current=$(jq -c --arg id "$ID" '. + [$id]' <<<"$current")
     done
+    # A draft doesn't supersede anything yet: the pages of its directory stay current.
+    if [[ $drafts != '[]' ]]; then
+        current=$(find "$site" -name meta.json -not -path '*/.git/*' -exec cat {} + \
+            | jq -cs --argjson cur "$current" --argjson drafts "$drafts" \
+                '$cur + [.[] | select(.dir | IN($drafts[])) | .id]')
+    fi
     log "Rendering $site"
     while IFS= read -r meta; do
         id=$(jq -r .id "$meta")

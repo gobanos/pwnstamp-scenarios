@@ -22,7 +22,12 @@ A directory named after the scenario (`[a-z0-9-]`), holding:
   x-pwnstamp:
     name: node:26.13.0-trixie-slim   # the target's official image reference
     vm: "2026.11.10"                 # a https://github.com/gobanos/pwnstamp-vm release
+    draft: true                      # optional: no page yet
   ```
+
+  Keep a new or changed scenario `draft` until its ceremony, then remove the flag: published
+  pages are permanent, so only ids that get issued should have one. The flag is not part of the
+  run definition, so removing it doesn't change the id.
 
 - the app it mounts, with the info page (`info.html`, the same in every scenario).
 
