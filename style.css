@@ -1,0 +1,94 @@
+/* pwnstamp visual style, Condensed (as the info page in each scenario app and the verifier).
+   Barlow Condensed Bold is self-hosted (Latin, OFL: fonts/OFL.txt). */
+@font-face {
+  font-family: "Barlow Condensed"; font-style: normal; font-weight: 700; font-display: swap;
+  src: url(/fonts/barlow-condensed-700-latin.woff2) format("woff2");
+}
+:root {
+  --bg: #fff; --fg: #0a0a0a; --mid: #6e6e6e; --hair: #e3e3e3; --fill: #f5f5f3; --sig: #ff4f00;
+  --display: "Barlow Condensed", "Roboto Condensed", sans-serif;
+  --sans: "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, "SFMono-Regular", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #0b0b0b; --fg: #f2f2f0; --mid: #8d8d8a; --hair: #262626; --fill: #141414; --sig: #ff6a26; }
+}
+
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 var(--sans); }
+main { max-width: 60rem; margin: 0 auto; padding: 0 1rem 4rem; }
+a { color: inherit; }
+a:hover { color: var(--sig); }
+code { font-family: var(--mono); font-size: .88em; overflow-wrap: anywhere; }
+p { margin: 0 0 1rem; }
+.d { font-family: var(--display); font-weight: 700; text-transform: uppercase; }
+
+header { display: grid; grid-template-columns: 1fr auto; align-items: end; gap: .6rem 1rem;
+         border-bottom: 2px solid var(--fg); padding: 2.5rem 0 .8rem; margin-bottom: 3rem; }
+.word { font-size: clamp(3rem, 11vw, 7rem); line-height: .82; letter-spacing: -.01em; text-decoration: none; }
+.word:hover { color: inherit; }
+.word i { display: inline-block; width: .32em; height: .32em; background: var(--sig); margin-left: .06em; }
+.meta { font: 11px/1.5 var(--mono); color: var(--mid); text-align: right; overflow-wrap: anywhere; }
+
+section { display: grid; grid-template-columns: 9rem 1fr; gap: 1.5rem; padding: 1.5rem 0 2.5rem;
+          border-top: 1px solid var(--hair); }
+section > h2 { margin: 0; font-size: 22px; line-height: 1.2; }
+section > div { min-width: 0; }
+section > div > :last-child { margin-bottom: 0; }
+h3 { font-size: 1.2rem; margin: 1.5rem 0 .4rem; }
+section > div > h3:first-child { margin-top: 0; }
+ul { margin: 0 0 1rem; padding-left: 1.2rem; }
+li { margin-bottom: .3rem; }
+
+.name { font-size: clamp(2rem, 5.6vw, 3.6rem); line-height: .95; overflow-wrap: break-word; }
+.id { margin-top: .8rem; font-size: 14px; }
+.label, .stats span { font: 500 11px var(--mono); text-transform: uppercase; color: var(--mid); }
+.label { margin-right: .5rem; }
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); margin: 1.8rem 0 1rem; border-top: 2px solid var(--fg); }
+.stats > div { padding: .7rem 1rem .2rem 0; min-width: 0; }
+.stats > div + div { border-left: 1px solid var(--hair); padding-left: 1rem; }
+.stats span { display: block; }
+.stats b { display: block; font-size: 1.7rem; line-height: 1.2; overflow-wrap: anywhere; }
+.stats .hot b { color: var(--sig); }
+.note { color: var(--mid); }
+
+pre { margin: 0 0 1rem; padding: .8rem; background: var(--fill); border: 1px solid var(--fg); overflow-x: auto; }
+pre code { font-size: 13px; overflow-wrap: normal; }
+
+table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 1.5rem; }
+table.kv { table-layout: fixed; }
+td { padding: .45rem 1rem .45rem 0; border-top: 1px solid var(--hair); vertical-align: top; overflow-wrap: anywhere; }
+td:first-child { width: 8rem; font-weight: 600; text-transform: uppercase; font-size: 12px; letter-spacing: .04em; overflow-wrap: normal; }
+td:last-child { padding-right: 0; }
+td small { display: block; color: var(--mid); }
+.pill { font: 600 11px var(--mono); border: 1px solid var(--fg); padding: .05rem .4rem; white-space: nowrap; }
+.pill.s { background: var(--sig); border-color: var(--sig); color: #000; }
+
+.lnk { display: grid; grid-template-columns: minmax(9rem, max-content) 1fr auto; gap: 1rem; align-items: baseline;
+       padding: .8rem 0; border-top: 1px solid var(--hair); text-decoration: none; }
+.lnk:last-child { border-bottom: 1px solid var(--hair); }
+.lnk b { font-size: 1.2rem; overflow-wrap: anywhere; }
+.lnk span { color: var(--mid); overflow-wrap: anywhere; }
+.lnk i { font-style: normal; font-weight: 700; }
+a.lnk:hover { color: inherit; }
+a.lnk:hover b, a.lnk:hover i { color: var(--sig); }
+
+.scn { display: grid; grid-template-columns: 1fr auto auto auto; gap: 1rem; align-items: baseline;
+       padding: .7rem 0; border-top: 1px solid var(--hair); text-decoration: none; }
+.scn:last-child { border-bottom: 1px solid var(--hair); }
+.scn b { font-size: 1.4rem; line-height: 1.1; overflow-wrap: anywhere; }
+.scn small { font: 500 11px var(--mono); color: var(--mid); }
+a.scn:hover { color: inherit; }
+a.scn:hover b { color: var(--sig); }
+
+@media (max-width: 40rem) {
+  header, section { grid-template-columns: 1fr; }
+  .meta { text-align: left; }
+  .stats { grid-template-columns: 1fr; }
+  .stats > div + div { border-left: 0; border-top: 1px solid var(--hair); padding-left: 0; }
+  .lnk { grid-template-columns: 1fr auto; }
+  .lnk span { grid-column: 1; grid-row: 2; }
+  .scn { grid-template-columns: 1fr auto; }
+  td:first-child { width: 6.5rem; }
+}

@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="referrer" content="no-referrer">
+<title>Rules · pwnstamp</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <header>
+    <a class="word d" href="/">pwnstamp<i></i></a>
+    <div class="meta">RULES</div>
+  </header>
+  <!-- The rules, wrapped in the site layout by scripts/site.sh. Every scenario's info page links
+       here (https://scenarios.pwnstamp.org/rules), so the URL never changes. -->
+  <section>
+    <h2 class="d">Scope</h2>
+    <div>
+      <p>You may attack the <b>targets</b>: the scenario instances served under
+        <code>pwnstamp-targets.dev</code>, and nothing else.</p>
+      <table class="kv">
+        <tr><td>user</td><td>The account the target app runs as. In scope.</td></tr>
+        <tr><td>root</td><td>Root inside the target container. In scope.</td></tr>
+        <tr><td>host</td><td>The VM around the container. Not yet in scope; planned.</td></tr>
+      </table>
+      <p><b>Out of scope</b>: the platform (reverse proxy, scenario host, Firecracker, the
+        network), these sites, the signer, the hosting provider's infrastructure, and any other
+        player. Denial of service against any of them is out of scope too.</p>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="d">The machine</h2>
+    <div>
+      <ul>
+        <li><b>Shared.</b> Every player attacks the same instance at the same time. Anything you
+          leave on it is visible to the others, and anyone at your level can undo your work.</li>
+        <li><b>Short-lived.</b> Each instance is rebuilt from scratch every hour; nothing
+          survives a rotation.</li>
+        <li><b>No egress.</b> Targets cannot reach the internet or each other: no reverse shells,
+          no downloads from inside. Bring everything in through the target's own surface.</li>
+        <li><b>Reproducible.</b> Each scenario page gives the exact images, sources and VM.
+          Research against your own copy; use the hosted target to confirm a finding and sign.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="d">Proofs</h2>
+    <div>
+      <ul>
+        <li>Sign with <code>/run/pwnstamp/bin/pwnstamp sign &lt;pseudo&gt;</code> at the level
+          you reached. The pseudo is public and declarative: pwnstamp doesn't know who you are.</li>
+        <li>A proof says that someone holding the level's key signed that pseudo during that
+          hour. It says nothing about how.</li>
+        <li>Keys of another level are not yours to publish: leaking a key lets others sign
+          without the access.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="d">Conduct</h2>
+    <div>
+      <ul>
+        <li>Don't use a target to host content for others (phishing, malware, defacement).</li>
+        <li>Don't degrade the instance on purpose for other players.</li>
+        <li>Found a way out of scope (into the platform, or another target)? Report it, don't use
+          it.</li>
+      </ul>
+      <p><b>Abuse and security contact</b>: <a href="mailto:abuse@pwnstamp.org">abuse@pwnstamp.org</a></p>
+    </div>
+  </section>
+
+  <section>
+    <h2 class="d">Reference</h2>
+    <div>
+      <a class="lnk" href="/"><b class="d">Scenarios</b><span>Every scenario, current and superseded</span><i>→</i></a>
+      <a class="lnk" href="/rules"><b class="d">Rules</b><span>Scope, no egress, shared machine, abuse contact</span><i>→</i></a>
+      <a class="lnk" href="https://verify.pwnstamp.org/"><b class="d">Verify a proof</b><span>verify.pwnstamp.org</span><i>→</i></a>
+    </div>
+  </section>
+</main>
+</body>
+</html>
