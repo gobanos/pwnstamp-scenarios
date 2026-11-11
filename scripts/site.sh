@@ -3,7 +3,10 @@
 # an index. Ids are computed here from each scenario directory, as the ceremony computes them.
 #
 #   scripts/site.sh ids          print `<dir> <id> <draft|ready>` for every scenario directory
-#   scripts/site.sh build SITE   archive the ready scenarios into SITE, then render SITE
+#   scripts/site.sh import PEM…  file the intermediates of a ceremony (USB_DIR/intermediates/*.pem)
+#                                into intermediates/<dir>/<id suffix>-<epoch>.pem, checked
+#   scripts/site.sh build SITE   archive the ready scenarios and their intermediates into SITE,
+#                                then render SITE
 #
 # SITE is append-only: a scenario whose id is already in SITE is left as it is, and nothing is
 # ever removed, so an updated scenario keeps the page of its previous id (marked superseded).
@@ -19,6 +22,10 @@
 #     vm: "2026.11.10"                 # the pwnstamp-vm release the scenario runs on
 #     draft: true                      # optional: no page yet (not in the run definition)
 #
+# Intermediates are checked against root-beta.pem (its fingerprint is pinned below): signed by
+# the root, CA with pathlen 0, CN `<id>/<epoch>`, and a scenario extension naming that id's
+# tuple. After a ceremony: `import`, remove the scenario's `draft`, commit both together.
+#
 # Needs docker (compose config only, no daemon access), jq, curl, openssl, and pwnstamp-source and
 # pwnstamp-compose from https://github.com/gobanos/pwnstamp (on PATH, or PWNSTAMP_BIN=<dir>).
 
@@ -28,6 +35,10 @@ REPO_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
 VM_RELEASES=https://github.com/gobanos/pwnstamp-vm/releases/download
 REPO_URL=https://github.com/gobanos/pwnstamp-scenarios
 SITE_URL=https://scenarios.pwnstamp.org
+ROOT_PEM=${ROOT_PEM:-$REPO_DIR/root-beta.pem}
+# SHA-256 of the beta root DER, as in https://github.com/gobanos/pwnstamp and _root.pwnstamp.org.
+ROOT_FP=${ROOT_FP:-7f42e3d2306087abc35ffcaa7cc5e63c7e6dd0c378bbfd41070f38d015234b39}
+SCENARIO_EXT=1.3.6.1.4.1.67557.1.1   # id-pwnstamp-ext-scenario, SPEC §3
 COMMIT=${GITHUB_SHA:-$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || echo unknown)}
 
 log() { printf '\033[1m==> %s\033[0m\n' "$*" >&2; }
@@ -42,6 +53,7 @@ tool() {
 
 sha256_hex() { openssl dgst -sha256 -r | cut -d' ' -f1; }
 esc() { jq -Rr @html <<<"$1"; }
+unhex() { tr a-f A-F <<<"$1" | basenc --base16 -d; }
 
 scenario_dirs() {
     local f
@@ -173,6 +185,99 @@ archive() {
         --arg target "$TARGET" --arg commit "$COMMIT" --arg date "$(date -u +%Y-%m-%d)" \
         '{id: $id, name: $name, dir: $dir, vm_release: $vm, target: $target, commit: $commit,
           published: $date}' >"$out/meta.json"
+}
+
+# --- Intermediates (SPEC §4.2, §4.3) -------------------------------------------------------------
+
+check_root() {
+    [[ $(openssl x509 -in "$ROOT_PEM" -outform DER | sha256_hex) == "$ROOT_FP" ]] \
+        || die "$ROOT_PEM is not the root $ROOT_FP"
+}
+
+# Checks the intermediate $1 and sets CERT_ID, CERT_EPOCH and CERT_TUPLE (its tuple digest).
+check_intermediate() {
+    local f=$1 cn hex ref name tuple suffix
+    openssl verify -no_check_time -CAfile "$ROOT_PEM" "$f" >/dev/null 2>&1 \
+        || die "$f: not signed by the root"
+    openssl x509 -in "$f" -noout -ext basicConstraints 2>/dev/null | grep -q 'CA:TRUE, pathlen:0' \
+        || die "$f: not an intermediate (CA, pathlen 0)"
+    cn=$(openssl x509 -in "$f" -noout -subject -nameopt RFC2253 | sed -n 's/^subject=CN=//p')
+    [[ $cn =~ ^([A-Za-z0-9][A-Za-z0-9._/:-]{0,254}@[A-Za-z0-9_-]{8})/([0-9]{6})$ ]] \
+        || die "$f: subject is not CN=<scenario id>/<epoch>"
+    CERT_ID=${BASH_REMATCH[1]} CERT_EPOCH=${BASH_REMATCH[2]}
+    # extnValue: a DER UTF8String holding the scenario reference (JSON, JCS).
+    hex=$(openssl x509 -in "$f" -outform DER | openssl asn1parse -inform DER \
+        | grep -A1 ":$SCENARIO_EXT\$" | sed -n 's/.*\[HEX DUMP\]://p')
+    [[ -n $hex ]] || die "$f: no scenario extension"
+    ref=$(unhex "$hex" | openssl asn1parse -inform DER | sed -n 's/^ *0:.*UTF8STRING *://p')
+    [[ $(jq -cS . <<<"$ref" 2>/dev/null) == "$ref" ]] || die "$f: scenario extension is not JCS JSON"
+    name=$(jq -r .name <<<"$ref") tuple=$(jq -r .tuple <<<"$ref")
+    [[ $tuple =~ ^sha256:[0-9a-f]{64}$ ]] || die "$f: bad tuple digest"
+    suffix=$(unhex "${tuple#sha256:}" | base64 | tr '+/' '-_' | cut -c1-8)
+    [[ $CERT_ID == "$name@$suffix" ]] || die "$f: CN $CERT_ID does not match its extension ($name, $tuple)"
+    CERT_TUPLE=$tuple
+}
+
+# Files ceremony output into intermediates/<dir>/<suffix>-<epoch>.pem, by the current ids.
+cmd_import() {
+    local ids='{}' dir f dest
+    check_root
+    for dir in $(scenario_dirs); do
+        derive "$dir"
+        ids=$(jq -c --arg id "$ID" --arg d "$dir" --arg t "sha256:$(printf '%s' "$TUPLE_JSON" | sha256_hex)" \
+            '.[$id] = {dir: $d, tuple: $t}' <<<"$ids")
+    done
+    for f in "$@"; do
+        check_intermediate "$f"
+        dir=$(jq -r --arg id "$CERT_ID" '.[$id].dir // ""' <<<"$ids")
+        [[ -n $dir ]] || die "$f: $CERT_ID is not the id of any scenario here"
+        [[ $(jq -r --arg id "$CERT_ID" '.[$id].tuple' <<<"$ids") == "$CERT_TUPLE" ]] \
+            || die "$f: tuple differs from $dir's"
+        dest=$REPO_DIR/intermediates/$dir/${CERT_ID##*@}-$CERT_EPOCH.pem
+        mkdir -p "$(dirname "$dest")"
+        if [[ -f $dest ]]; then
+            cmp -s <(openssl x509 -in "$f") "$dest" || die "$dest exists with another certificate"
+            log "$CERT_ID/$CERT_EPOCH: already filed"
+            continue
+        fi
+        openssl x509 -in "$f" >"$dest"
+        log "$CERT_ID/$CERT_EPOCH: intermediates/$dir/${dest##*/}"
+    done
+}
+
+# Copies every filed intermediate to SITE/<id>/intermediates/<epoch>.pem (append-only).
+archive_intermediates() {
+    local site=$1 f out
+    for f in "$REPO_DIR"/intermediates/*/*.pem; do
+        [[ -f $f ]] || continue
+        check_intermediate "$f"
+        [[ ${f##*/} == "${CERT_ID##*@}-$CERT_EPOCH.pem" ]] || die "$f: name differs from its CN"
+        [[ -f $site/$CERT_ID/tuple.json ]] \
+            || die "$f: $CERT_ID has no page (is its scenario still draft?)"
+        [[ sha256:$(sha256_hex <"$site/$CERT_ID/tuple.json") == "$CERT_TUPLE" ]] \
+            || die "$f: tuple differs from the archived one"
+        out=$site/$CERT_ID/intermediates/$CERT_EPOCH.pem
+        if [[ -f $out ]]; then
+            cmp -s "$f" "$out" || die "$out: archived with another certificate"
+            continue
+        fi
+        mkdir -p "${out%/*}"
+        cp "$f" "$out"
+        log "$CERT_ID: intermediate $CERT_EPOCH archived"
+    done
+}
+
+# The intermediates section of a scenario page, from $1/intermediates/.
+intermediates_html() {
+    local d=$1 f nb na any=
+    for f in "$d"/intermediates/*.pem; do
+        [[ -f $f ]] || continue
+        if [[ -z $any ]]; then any=1; echo '      <table class="kv">'; fi
+        nb=$(openssl x509 -in "$f" -noout -startdate -dateopt iso_8601 | sed 's/^notBefore=//; s/ .*//')
+        na=$(openssl x509 -in "$f" -noout -enddate -dateopt iso_8601 | sed 's/^notAfter=//; s/ .*//')
+        row "$(basename "$f" .pem)" "<a href=\"intermediates/$(basename "$f")\">$(basename "$f")</a><small>Valid $nb to $na</small>"
+    done
+    if [[ -n $any ]]; then echo '      </table>'; else echo '      <p class="note">None published yet.</p>'; fi
 }
 
 # --- Rendering -----------------------------------------------------------------------------------
@@ -312,6 +417,15 @@ $(row "Command line" "<code>$(jq -r '.cmdline | @html' "$d/vm.json")</code>")
   </section>
 
   <section>
+    <h2 class="d">Intermediates</h2>
+    <div>
+      <p>One per monthly epoch, signed by the <a href="/root-beta.pem">beta root</a>. The leaves
+        of each instance are signed by the intermediate of their epoch.</p>
+$(intermediates_html "$d")
+    </div>
+  </section>
+
+  <section>
     <h2 class="d">Files</h2>
     <div>
       <a class="lnk" href="scenario.tar.gz"><b class="d">scenario.tar.gz</b><span>compose.yaml and sources/</span><i>↓</i></a>
@@ -352,6 +466,16 @@ EOF
     </div>
   </section>
 
+  <section>
+    <h2 class="d">Root</h2>
+    <div>
+      <p>Every scenario's intermediates are signed by the beta root,
+        <a href="/root-beta.pem">root-beta.pem</a>. SHA-256 of the certificate:</p>
+      <pre><code>$ROOT_FP</code></pre>
+      <p class="note">Also in DNS: <code>dig +short TXT _root.pwnstamp.org</code>.</p>
+    </div>
+  </section>
+
 EOF
         foot_html
     } >"$site/index.html"
@@ -374,6 +498,7 @@ cmd_ids() {
 
 cmd_build() {
     local site=$1 dir current='[]' drafts='[]' meta id
+    check_root
     mkdir -p "$site"
     for dir in $(scenario_dirs); do
         derive "$dir"
@@ -391,6 +516,7 @@ cmd_build() {
             | jq -cs --argjson cur "$current" --argjson drafts "$drafts" \
                 '$cur + [.[] | select(.dir | IN($drafts[])) | .id]')
     fi
+    archive_intermediates "$site"
     log "Rendering $site"
     while IFS= read -r meta; do
         id=$(jq -r .id "$meta")
@@ -403,12 +529,14 @@ cmd_build() {
     render_index "$site" "$current"
     render_rules "$site"
     cp "$REPO_DIR/site/style.css" "$site/style.css"
+    cp "$ROOT_PEM" "$site/root-beta.pem"
     rm -rf "$site/fonts" && cp -r "$REPO_DIR/site/fonts" "$site/fonts"
     touch "$site/.nojekyll"
 }
 
 case ${1:-} in
     ids) (($# == 1)) || die "usage: scripts/site.sh ids"; cmd_ids ;;
+    import) (($# >= 2)) || die "usage: scripts/site.sh import PEM..."; shift; cmd_import "$@" ;;
     build) (($# == 2)) || die "usage: scripts/site.sh build SITE"; cmd_build "$2" ;;
-    *) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+    *) sed -n '2,30p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
 esac

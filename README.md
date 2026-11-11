@@ -31,6 +31,14 @@ A directory named after the scenario (`[a-z0-9-]`), holding:
 
 - the app it mounts, with the info page (`info.html`, the same in every scenario).
 
+After the ceremony, file its intermediates and publish in one commit:
+
+```sh
+scripts/site.sh import /path/to/usb/intermediates/<scenario>-*.pem   # checked against root-beta.pem
+# then remove `draft: true` from the scenario's compose.yaml
+git add intermediates/ <dir>/compose.yaml && git commit
+```
+
 `scripts/site.sh ids` prints the id of each scenario, and `scripts/site.sh build DIR` builds the
 site into `DIR` (see the script for what it needs).
 
